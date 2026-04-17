@@ -1,3 +1,4 @@
 defaultProject: "jcpenny-mlops-poc"
 defaultDataset: "dataform"
+defaultAssertionDataset: dataform_assertions
 defaultLocation: "us-east1"
