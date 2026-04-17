@@ -1,0 +1,112 @@
+name: Run Dataform by environment
+
+on:
+  push:
+    branches:
+      - dev
+      - test
+      - main
+
+jobs:
+  run-dataform:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Set environment values from branch
+        run: |
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          if [ "$BRANCH_NAME" = "dev" ]; then
+            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" = "test" ]; then
+            echo "TARGET_PROJECT_ID=alphafold-cobuilt-rit" >> $GITHUB_ENV
+          elif [ "$BRANCH_NAME" = "main" ]; then
+            echo "TARGET_PROJECT_ID=yes-bank-poc" >> $GITHUB_ENV
+          else
+            echo "Unsupported branch: $BRANCH_NAME"
+            exit 1
+          fi
+
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "PROJECT_ID=jcpenny-mlops-poc" >> $GITHUB_ENV
+          echo "REGION=us-east1" >> $GITHUB_ENV
+          echo "REPO_ID=dataform-cicd-demo" >> $GITHUB_ENV
+          echo "TARGET_SCHEMA=dataform" >> $GITHUB_ENV
+
+      - name: Compile Dataform
+        run: |
+          set -e
+
+          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+
+          COMPILATION_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://dataform.googleapis.com/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/repositories/${REPO_ID}/compilationResults" \
+            -d "{
+              \"gitCommitish\": \"${BRANCH_NAME}\",
+              \"codeCompilationConfig\": {
+                \"defaultDatabase\": \"${TARGET_PROJECT_ID}\",
+                \"defaultSchema\": \"${TARGET_SCHEMA}\"
+              }
+            }")
+
+          echo "$COMPILATION_RESPONSE"
+
+          COMPILATION_RESULT=$(echo "$COMPILATION_RESPONSE" | jq -r '.name')
+          COMPILATION_ERRORS=$(echo "$COMPILATION_RESPONSE" | jq -r '.compilationErrors | length')
+
+          if [ -z "$COMPILATION_RESULT" ] || [ "$COMPILATION_RESULT" = "null" ]; then
+            echo "Compilation result was not created"
+            exit 1
+          fi
+
+          if [ "$COMPILATION_ERRORS" != "0" ]; then
+            echo "Compilation has errors"
+            exit 1
+          fi
+
+          echo "COMPILATION_RESULT=$COMPILATION_RESULT" >> $GITHUB_ENV
+
+      - name: Invoke Dataform workflow
+        run: |
+          set -e
+
+          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+
+          INVOCATION_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://dataform.googleapis.com/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/repositories/${REPO_ID}/workflowInvocations" \
+            -d "{
+              \"compilationResult\": \"${COMPILATION_RESULT}\",
+              \"invocationConfig\": {
+                \"transitiveDependenciesIncluded\": true
+              }
+            }")
+
+          echo "$INVOCATION_RESPONSE"
+
+          INVOCATION_NAME=$(echo "$INVOCATION_RESPONSE" | jq -r '.name')
+
+          if [ -z "$INVOCATION_NAME" ] || [ "$INVOCATION_NAME" = "null" ]; then
+            echo "Workflow invocation was not created"
+            exit 1
+          fi
