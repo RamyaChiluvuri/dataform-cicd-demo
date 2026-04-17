@@ -36,9 +36,9 @@ jobs:
           if [ "$BRANCH_NAME" = "dev" ]; then
             echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "test" ]; then
-            echo "TARGET_PROJECT_ID=alphafold-cobuilt-rit" >> $GITHUB_ENV
+            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
           elif [ "$BRANCH_NAME" = "main" ]; then
-            echo "TARGET_PROJECT_ID=yes-bank-poc" >> $GITHUB_ENV
+            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
           else
             echo "Unsupported branch: $BRANCH_NAME"
             exit 1
@@ -47,8 +47,9 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
           echo "PROJECT_ID=jcpenny-mlops-poc" >> $GITHUB_ENV
           echo "REGION=us-east1" >> $GITHUB_ENV
-          echo "REPO_ID=dataform-cicd-demo" >> $GITHUB_ENV
+          echo "REPO_ID=tf-dataform-repo" >> $GITHUB_ENV
           echo "TARGET_SCHEMA=dataform" >> $GITHUB_ENV
+          echo "DATAFORM_RUNNER_SA=dataform-runner@jcpenny-mlops-poc.iam.gserviceaccount.com" >> $GITHUB_ENV
 
       - name: Compile Dataform
         run: |
@@ -98,6 +99,7 @@ jobs:
             -d "{
               \"compilationResult\": \"${COMPILATION_RESULT}\",
               \"invocationConfig\": {
+                \"serviceAccount\": \"${DATAFORM_RUNNER_SA}\",
                 \"transitiveDependenciesIncluded\": true
               }
             }")
