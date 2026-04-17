@@ -62,7 +62,7 @@ jobs:
             -H "Content-Type: application/json" \
             "https://dataform.googleapis.com/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/repositories/${REPO_ID}/compilationResults" \
             -d "{
-              \"gitCommitish\": \"${BRANCH_NAME}\",
+              \"gitCommitish\": \"${GITHUB_SHA}\",
               \"codeCompilationConfig\": {
                 \"defaultDatabase\": \"${TARGET_PROJECT_ID}\",
                 \"defaultSchema\": \"${TARGET_SCHEMA}\"
