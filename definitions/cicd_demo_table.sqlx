@@ -1,9 +1,0 @@
-config {
-  type: "table",
-  tags: ["sales"]
-}
-
-select
-  1 as id,
-  "dev test a test" as env,
-  current_timestamp() as loaded_at
