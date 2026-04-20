@@ -37,7 +37,7 @@ jobs:
           REGION="us-east1"
           REPO_ID="dataform-cicd-demo"
           TARGET_PROJECT_ID="solution-kit-8-372403"
-          BRANCH_NAME="dev"
+          BRANCH_NAME="test"
 
           ACCESS_TOKEN=$(gcloud auth print-access-token)
 
@@ -74,6 +74,6 @@ jobs:
             \"invocationConfig\": {
               \"includedTags\": [\"finance\"],
               \"transitiveDependenciesIncluded\": true,
-              \"serviceAccount\": \"${DATAFORM_RUNNER_SA}\"
+              \"serviceAccount\": \"dataform-runner@jcpenny-mlops-poc.iam.gserviceaccount.com\"
             }
           }"
