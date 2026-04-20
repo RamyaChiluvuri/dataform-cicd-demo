@@ -1,0 +1,7 @@
+{
+  "name": "dataform-project",
+  "private": true,
+  "dependencies": {
+    "@dataform/core": "3.0.42"
+  }
+}
