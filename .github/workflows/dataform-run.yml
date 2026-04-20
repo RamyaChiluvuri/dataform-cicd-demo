@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - dev
-      - test
-      - main
 
 jobs:
   run-dataform:
@@ -74,6 +72,6 @@ jobs:
             \"invocationConfig\": {
               \"includedTags\": [\"finance\"],
               \"transitiveDependenciesIncluded\": true,
-              \"serviceAccount\": \"${DATAFORM_RUNNER_SA}\"
+              \"serviceAccount\": \"dataform-runner@jcpenny-mlops-poc.iam.gserviceaccount.com\"
             }
           }"
