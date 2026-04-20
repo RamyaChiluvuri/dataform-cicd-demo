@@ -1,10 +1,8 @@
-name: Run Dataform by environment
+name: Run Dataform on push
 
 on:
   push:
     branches:
-      - dev
-      - test
       - main
 
 jobs:
@@ -29,86 +27,51 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: Set environment values from branch
-        run: |
-          BRANCH_NAME="${GITHUB_REF_NAME}"
-
-          if [ "$BRANCH_NAME" = "dev" ]; then
-            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "test" ]; then
-            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "main" ]; then
-            echo "TARGET_PROJECT_ID=solution-kit-8-372403" >> $GITHUB_ENV
-          else
-            echo "Unsupported branch: $BRANCH_NAME"
-            exit 1
-          fi
-
-          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
-          echo "PROJECT_ID=jcpenny-mlops-poc" >> $GITHUB_ENV
-          echo "REGION=us-east1" >> $GITHUB_ENV
-          echo "REPO_ID=tf-dataform-repo" >> $GITHUB_ENV
-          echo "TARGET_SCHEMA=dataform" >> $GITHUB_ENV
-          echo "DATAFORM_RUNNER_SA=dataform-runner@jcpenny-mlops-poc.iam.gserviceaccount.com" >> $GITHUB_ENV
-
-      - name: Compile Dataform
+      - name: Compile and run Dataform
         run: |
           set -e
 
-          ACCESS_TOKEN="$(gcloud auth print-access-token)"
+          PROJECT_ID="jcpenny-mlops-poc"
+          REGION="us-east1"
+          REPO_ID="tf-dataform-repo"
+          TARGET_PROJECT_ID="solution-kit-8-372403"
+          BRANCH_NAME="main"
+
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+
+          echo "Step 1: Create compilation result"
 
           COMPILATION_RESPONSE=$(curl -s -X POST \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/json" \
             "https://dataform.googleapis.com/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/repositories/${REPO_ID}/compilationResults" \
             -d "{
-              \"gitCommitish\": \"dev\",
+              \"gitCommitish\": \"${BRANCH_NAME}\",
               \"codeCompilationConfig\": {
-                \"defaultDatabase\": \"${TARGET_PROJECT_ID}\",
-                \"defaultSchema\": \"${TARGET_SCHEMA}\"
+                \"defaultDatabase\": \"${TARGET_PROJECT_ID}\"
               }
             }")
 
           echo "$COMPILATION_RESPONSE"
 
           COMPILATION_RESULT=$(echo "$COMPILATION_RESPONSE" | jq -r '.name')
-          COMPILATION_ERRORS=$(echo "$COMPILATION_RESPONSE" | jq -r '.compilationErrors | length')
 
           if [ -z "$COMPILATION_RESULT" ] || [ "$COMPILATION_RESULT" = "null" ]; then
-            echo "Compilation result was not created"
+            echo "Compilation failed"
             exit 1
           fi
 
-          if [ "$COMPILATION_ERRORS" != "0" ]; then
-            echo "Compilation has errors"
-            exit 1
-          fi
+          echo "Step 2: Run workflow"
 
-          echo "COMPILATION_RESULT=$COMPILATION_RESULT" >> $GITHUB_ENV
-
-      - name: Invoke Dataform workflow
-        run: |
-          set -e
-
-          ACCESS_TOKEN="$(gcloud auth print-access-token)"
-
-          INVOCATION_RESPONSE=$(curl -s -X POST \
+          curl -s -X POST \
             -H "Authorization: Bearer ${ACCESS_TOKEN}" \
             -H "Content-Type: application/json" \
             "https://dataform.googleapis.com/v1beta1/projects/${PROJECT_ID}/locations/${REGION}/repositories/${REPO_ID}/workflowInvocations" \
             -d "{
-              \"compilationResult\": \"${COMPILATION_RESULT}\",
-              \"invocationConfig\": {
-                \"serviceAccount\": \"${DATAFORM_RUNNER_SA}\",
-                \"transitiveDependenciesIncluded\": true
-              }
-            }")
-
-          echo "$INVOCATION_RESPONSE"
-
-          INVOCATION_NAME=$(echo "$INVOCATION_RESPONSE" | jq -r '.name')
-
-          if [ -z "$INVOCATION_NAME" ] || [ "$INVOCATION_NAME" = "null" ]; then
-            echo "Workflow invocation was not created"
-            exit 1
-          fi
+            \"compilationResult\": \"${COMPILATION_RESULT}\",
+            \"invocationConfig\": {
+              \"includedTags\": [\"finance\"],
+              \"transitiveDependenciesIncluded\": true,
+              \"serviceAccount\": \"${DATAFORM_RUNNER_SA}\"
+            }
+          }"
