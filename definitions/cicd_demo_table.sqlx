@@ -4,5 +4,5 @@ config {
 
 select
   1 as id,
-  "dev test" as env,
+  "dev test ramya" as env,
   current_timestamp() as loaded_at
