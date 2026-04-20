@@ -3,7 +3,7 @@ name: Run Dataform on push
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   run-dataform:
